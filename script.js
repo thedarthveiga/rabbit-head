@@ -85,13 +85,64 @@ function initGame() {
     resetGame();
 }
 
+// Web Audio API Context for procedural sounds
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new AudioContext();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playSound(type) {
+    if (!audioCtx) return;
+    
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    const now = audioCtx.currentTime;
+    
+    if (type === 'jump') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+    } else if (type === 'score') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, now);
+        gainNode.gain.setValueAtTime(0.1, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+    } else if (type === 'hit') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now);
+        osc.stop(now + 0.3);
+    }
+}
+
 function handleInput(e) {
     if ((e.code === 'Space' || e.code === 'ArrowUp' || e.type === 'mousedown')) {
+        initAudio(); // Initialize audio context on first interaction
         if (!isPlaying) {
             resetGame();
         } else if (!rabbit.isJumping) {
             rabbit.velocityY = JUMP_POWER;
             rabbit.isJumping = true;
+            playSound('jump');
         }
     }
 }
@@ -162,6 +213,9 @@ function update() {
         obstacles.shift();
         score++;
         document.getElementById('score').innerText = score;
+        if (score > 0 && score % 1 === 0) { // Play sound on every point
+            playSound('score');
+        }
     }
 
     spawnObstacle();
@@ -231,6 +285,7 @@ function gameLoop() {
 
 function gameOver() {
     isPlaying = false;
+    playSound('hit');
     document.getElementById('finalScore').innerText = score;
     document.getElementById('gameOverScreen').classList.remove('hidden');
 }
